@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DNA Helix - Quantum</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 13px;
+      z-index: 100;
+      min-width: 200px;
+    }
+    .controls h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 4px;
+      opacity: 0.7;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8a5cff, #4ad4ff);
+      cursor: pointer;
+    }
+    .theme-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .theme-btn {
+      padding: 6px 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    .theme-btn:hover {
+      background: rgba(255,255,255,0.15);
+    }
+    .theme-btn.active {
+      background: linear-gradient(135deg, #8a5cff, #4ad4ff);
+      border-color: transparent;
+    }
+    .fps {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #4ad4ff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .back-btn:hover {
+      background: rgba(139,92,246,0.3);
+      border-color: rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-btn">← Zurück</a>
+  <canvas id="c"></canvas>
+
+  <div class="controls">
+    <h3>🧬 Controls</h3>
+
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="0" max="200" value="100">
+    </div>
+
+    <div class="control-group">
+      <label>Theme</label>
+      <div class="theme-buttons">
+        <button class="theme-btn active" data-theme="neon">Neon</button>
+        <button class="theme-btn" data-theme="plasma">Plasma</button>
+        <button class="theme-btn" data-theme="ice">Ice</button>
+        <button class="theme-btn" data-theme="toxic">Toxic</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fps" id="fps">60 FPS</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const fpsEl = document.getElementById('fps');
+
+    let speedMultiplier = 1.0;
+    let currentTheme = 'neon';
+
+    const themes = {
+      neon: { hue1: 280, hue2: 180 },
+      plasma: { hue1: 320, hue2: 10 },
+      ice: { hue1: 200, hue2: 180 },
+      toxic: { hue1: 80, hue2: 120 }
+    };
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const helixLength = 400;
+    const helixRadius = 80;
+    const segments = 100;
+    const connections = 15;
+
+    class HelixParticle {
+      constructor(i, strand) {
+        this.i = i;
+        this.strand = strand;
+      }
+
+      update(time) {
+        const t = (this.i / segments);
+        const y = (t - 0.5) * helixLength;
+        const angle = t * Math.PI * 4 + time * 0.01 * speedMultiplier + (this.strand * Math.PI);
+
+        let x = Math.cos(angle) * helixRadius;
+        let z = Math.sin(angle) * helixRadius;
+
+        const rotY = time * 0.005 * speedMultiplier;
+        const cy = Math.cos(rotY), sy = Math.sin(rotY);
+        let x1 = x * cy - z * sy;
+        let z1 = x * sy + z * cy;
+
+        const dist = 800;
+        const scale = dist / (dist + z1);
+
+        this.x = canvas.width / 2 + x1 * scale;
+        this.y = canvas.height / 2 + y * scale;
+        this.z = z1;
+        this.scale = scale;
+        this.brightness = (z1 + 200) / 400;
+        this.angle = angle;
+      }
+
+      draw() {
+        const alpha = 0.8 * this.brightness;
+        if (alpha < 0.1) return;
+
+        const theme = themes[currentTheme];
+        const hue = this.strand === 0 ? theme.hue1 : theme.hue2;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3 * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.shadowBlur = 20 * this.scale;
+        ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    const strand1 = [];
+    const strand2 = [];
+
+    for (let i = 0; i < segments; i++) {
+      strand1.push(new HelixParticle(i, 0));
+      strand2.push(new HelixParticle(i, 1));
+    }
+
+    let time = 0;
+    let lastTime = performance.now();
+    let frames = 0;
+    let lastFpsUpdate = performance.now();
+
+    function animate() {
+      const now = performance.now();
+      lastTime = now;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      strand1.forEach(p => p.update(time));
+      strand2.forEach(p => p.update(time));
+
+      const allParticles = [...strand1, ...strand2];
+      allParticles.sort((a, b) => a.z - b.z);
+
+      const theme = themes[currentTheme];
+
+      for (let i = 0; i < segments; i += Math.floor(segments / connections)) {
+        const p1 = strand1[i];
+        const p2 = strand2[i];
+
+        if (p1 && p2) {
+          const avgBrightness = (p1.brightness + p2.brightness) / 2;
+          if (avgBrightness > 0.2) {
+            ctx.save();
+            ctx.globalAlpha = avgBrightness * 0.4;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `hsl(${(theme.hue1 + theme.hue2) / 2}, 100%, 60%)`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      allParticles.forEach(p => p.draw());
+
+      time++;
+      frames++;
+
+      if (now - lastFpsUpdate > 500) {
+        const fps = Math.round((frames * 1000) / (now - lastFpsUpdate));
+        fpsEl.textContent = `${fps} FPS`;
+        frames = 0;
+        lastFpsUpdate = now;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+      speedMultiplier = e.target.value / 100;
+    });
+
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTheme = btn.dataset.theme;
+      });
+    });
+  </script>
+</body>
+</html>
