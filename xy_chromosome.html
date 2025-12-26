@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XY Chromosome - Quantum</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 13px;
+      z-index: 100;
+      min-width: 200px;
+    }
+    .controls h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 4px;
+      opacity: 0.7;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8a5cff, #4ad4ff);
+      cursor: pointer;
+    }
+    .fps {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #4ad4ff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(10,10,30,0.85);
+      backdrop-filter: blur(10px);
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .back-btn:hover {
+      background: rgba(139,92,246,0.3);
+      border-color: rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-btn">← Zurück</a>
+  <canvas id="c"></canvas>
+
+  <div class="controls">
+    <h3>⚡ Controls</h3>
+
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="0" max="200" value="100">
+    </div>
+  </div>
+
+  <div class="fps" id="fps">60 FPS</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const fpsEl = document.getElementById('fps');
+
+    let speedMultiplier = 1.0;
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    class Chromosome {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.particles = [];
+        this.buildChromosome();
+      }
+
+      buildChromosome() {
+        if (this.type === 'X') {
+          for (let i = 0; i < 200; i++) {
+            const t = i / 200;
+            const arm1 = { x: -100 + t * 200, y: -100 + t * 200 };
+            const arm2 = { x: -100 + t * 200, y: 100 - t * 200 };
+            this.particles.push(arm1);
+            this.particles.push(arm2);
+          }
+        } else {
+          for (let i = 0; i < 150; i++) {
+            const t = i / 150;
+            if (t < 0.5) {
+              const st = t * 2;
+              const arm1 = { x: -50 + st * 50, y: -80 + st * 80 };
+              const arm2 = { x: 50 - st * 50, y: -80 + st * 80 };
+              this.particles.push(arm1);
+              this.particles.push(arm2);
+            } else {
+              const st = (t - 0.5) * 2;
+              const centerLine = { x: 0, y: st * 100 };
+              this.particles.push(centerLine);
+            }
+          }
+        }
+      }
+
+      draw(time) {
+        const pulse = 0.9 + Math.sin(time * 0.02 * speedMultiplier) * 0.1;
+        const scanLine = ((time * 2 * speedMultiplier) % 300) - 150;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const hue = this.type === 'X' ? 280 : 320;
+
+        this.particles.forEach((p, i) => {
+          const distToScan = Math.abs(p.y - scanLine);
+          const scanAlpha = distToScan < 30 ? (1 - distToScan / 30) * 0.5 : 0;
+
+          ctx.beginPath();
+          ctx.arc(p.x * pulse, p.y * pulse, 2, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${0.6 + scanAlpha})`;
+          ctx.shadowBlur = 10 + scanAlpha * 20;
+          ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+          ctx.fill();
+        });
+
+        if (scanLine > -150 && scanLine < 150) {
+          ctx.beginPath();
+          ctx.moveTo(-150, scanLine);
+          ctx.lineTo(150, scanLine);
+          ctx.strokeStyle = `hsla(${hue + 20}, 100%, 70%, 0.8)`;
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 30;
+          ctx.shadowColor = `hsl(${hue + 20}, 100%, 70%)`;
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.3;
+        ctx.font = '16px monospace';
+        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.type, 0, -120);
+
+        ctx.restore();
+      }
+    }
+
+    const xChrom = new Chromosome(canvas.width / 2 - 150, canvas.height / 2, 'X');
+    const yChrom = new Chromosome(canvas.width / 2 + 150, canvas.height / 2, 'Y');
+
+    window.addEventListener('resize', () => {
+      xChrom.x = canvas.width / 2 - 150;
+      xChrom.y = canvas.height / 2;
+      yChrom.x = canvas.width / 2 + 150;
+      yChrom.y = canvas.height / 2;
+    });
+
+    let time = 0;
+    let lastTime = performance.now();
+    let frames = 0;
+    let lastFpsUpdate = performance.now();
+
+    function animate() {
+      const now = performance.now();
+      lastTime = now;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const gridSize = 50;
+      ctx.strokeStyle = 'rgba(100, 100, 255, 0.05)';
+      ctx.lineWidth = 1;
+
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      xChrom.draw(time);
+      yChrom.draw(time);
+
+      time++;
+      frames++;
+
+      if (now - lastFpsUpdate > 500) {
+        const fps = Math.round((frames * 1000) / (now - lastFpsUpdate));
+        fpsEl.textContent = `${fps} FPS`;
+        frames = 0;
+        lastFpsUpdate = now;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+      speedMultiplier = e.target.value / 100;
+    });
+  </script>
+</body>
+</html>
